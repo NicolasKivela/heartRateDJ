@@ -12,6 +12,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+        manifestPlaceholders["appAuthRedirectScheme"] = "heartratedj"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -49,7 +50,14 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+    implementation(libs.appauth)
 
-    // Add your ANT+ AAR file
+    // Correct way to include the Spotify App Remote SDK AAR
+    implementation(files("libs/spotify-app-remote-release-0.8.0.aar"))
+
+    // ANT+ AAR file
     implementation(files("libs/antpluginlib_3-9-0.aar"))
+
+    // Gson
+    implementation("com.google.code.gson:gson:2.6.1")
 }
