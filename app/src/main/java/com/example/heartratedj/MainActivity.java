@@ -42,6 +42,7 @@ public class MainActivity extends AppCompatActivity {
     private final List<Double> beatEventTimes = new ArrayList<>();
     private final List<Double> rrIntervals = new ArrayList<>();
     List<Double> rrValues = new ArrayList<>();
+    public static String accessToken;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,6 +64,13 @@ public class MainActivity extends AppCompatActivity {
         });
         findViewById(R.id.playMusic).setOnClickListener(v -> {
             Log.d("Play music clicked", "Play Music");
+            SpotifyPlayer player = new SpotifyPlayer();
+            Log.d("SpotifyPLayer", "player" + player);
+            try {
+                player.search_songs();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         });
 
 
@@ -84,6 +92,7 @@ public class MainActivity extends AppCompatActivity {
                         (tokResp, tokEx) -> {
                             if (tokResp != null) {
                                 Log.d("Spotify", "Access-Token = " + tokResp.accessToken);
+                                accessToken = tokResp.accessToken;
                                 getUserProfile(tokResp.accessToken);
                             } else {
                                 Log.e("Spotify", "Token exchange failed", tokEx);
