@@ -11,6 +11,9 @@ import com.dsi.ant.plugins.antplus.pcc.defines.RequestAccessResult;
 import com.dsi.ant.plugins.antplus.pcc.defines.DeviceState;
 import com.dsi.ant.plugins.antplus.pccbase.AntPluginPcc;
 import com.dsi.ant.plugins.antplus.pccbase.PccReleaseHandle;
+import com.spotify.android.appremote.api.ConnectionParams;
+import com.spotify.android.appremote.api.Connector;
+import com.spotify.android.appremote.api.SpotifyAppRemote;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -37,30 +40,56 @@ import net.openid.appauth.TokenRequest;
 
 
 public class MainActivity extends AppCompatActivity {
+
+    private static final String CLIENT_ID = "bb6c51e8855242ba8cca8c251759cd79";
+    private static final String REDIRECT_URI = "heartratedj://callback";
+    private SpotifyAppRemote mSpotifyAppRemote;
     private AntPlusHeartRatePcc hrPcc;
     private PccReleaseHandle<AntPlusHeartRatePcc> releaseHandle;
     private final List<Double> beatEventTimes = new ArrayList<>();
     private final List<Double> rrIntervals = new ArrayList<>();
     List<Double> rrValues = new ArrayList<>();
     public static String accessToken;
+    @Override protected void onStart() {
+        super.onStart();
+
+        ConnectionParams params = new ConnectionParams.Builder(CLIENT_ID)
+                .setRedirectUri(REDIRECT_URI)   // EXACTLY the same string
+                .showAuthView(true)             // pops the green “Allow” sheet once
+                .build();
+
+        SpotifyAppRemote.connect(this, params, new Connector.ConnectionListener() {
+            @Override public void onConnected(SpotifyAppRemote remote) {
+                mSpotifyAppRemote = remote;
+                Log.d("MainActivity", "Connected!");
+                // e.g. remote.playerApi.play("spotify:playlist:37i9dQZF1DX2sUQwD7tbmL");
+            }
+
+            @Override public void onFailure(Throwable error) {
+                Log.e("MainActivity", "AppRemote error", error);
+            }
+        });
+    }
+
+    @Override protected void onStop() {
+        super.onStop();
+        if (mSpotifyAppRemote != null) {
+            SpotifyAppRemote.disconnect(mSpotifyAppRemote);
+            mSpotifyAppRemote = null;
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Intent intent = getIntent();
-        if (intent != null && intent.getData() != null) {
-            Log.d("INTENT", "Handling redirect from onCreate");
-            handleSpotifyRedirect(intent);
-        }
-
         findViewById(R.id.antConnect).setOnClickListener(v -> {
             Log.d("ANT CONNECT", "CONNECTED TO ANT");
             antConnection();
         });
         findViewById(R.id.btnSpotifyAuth).setOnClickListener(v -> {
-            startSpotifyAuthFlow();
+
         });
         findViewById(R.id.playMusic).setOnClickListener(v -> {
             Log.d("Play music clicked", "Play Music");
@@ -78,35 +107,12 @@ public class MainActivity extends AppCompatActivity {
 
 
     }
-    @Override
-    protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-
-        if (ACTION_HANDLE_AUTH.equals(intent.getAction())) {
-            AuthorizationResponse resp = AuthorizationResponse.fromIntent(intent);
-            AuthorizationException ex  = AuthorizationException.fromIntent(intent);
-
-            if (resp != null) {                         // success, we have the code
-                TokenRequest tokenRq = resp.createTokenExchangeRequest();
-                authService.performTokenRequest(tokenRq,
-                        (tokResp, tokEx) -> {
-                            if (tokResp != null) {
-                                Log.d("Spotify", "Access-Token = " + tokResp.accessToken);
-                                accessToken = tokResp.accessToken;
-                                getUserProfile(tokResp.accessToken);
-                            } else {
-                                Log.e("Spotify", "Token exchange failed", tokEx);
-                            }
-                        });
-            } else {                                    // something went wrong
-                Log.e("Spotify", "Authorization failed", ex);
-            }
-        }
-    }
-
     private AuthorizationRequest authRequest;
     private AuthorizationService authService;
     private static final String ACTION_HANDLE_AUTH = "HANDLE_AUTH_DONE";
+
+
+
 
     private void antConnection(){
         releaseHandle = AntPlusHeartRatePcc.requestAccess(this, this,
@@ -128,75 +134,6 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                 });
-    }
-    private void startSpotifyAuthFlow() {
-        if (authService == null) authService = new AuthorizationService(this);
-
-        AuthorizationServiceConfiguration cfg = new AuthorizationServiceConfiguration(
-                Uri.parse("https://accounts.spotify.com/authorize"),
-                Uri.parse("https://accounts.spotify.com/api/token"));
-
-        AuthorizationRequest req = new AuthorizationRequest.Builder(
-                cfg,
-                "bb6c51e8855242ba8cca8c251759cd79",  // client-id
-                ResponseTypeValues.CODE,
-                Uri.parse("heartratedj://callback")   // must match Spotify dashboard
-        )
-                .setScopes("user-read-email", "user-read-private")
-                .build();
-
-        /* 1️⃣  Tell AppAuth where to return when it’s done */
-        Intent completionIntent = new Intent(this, MainActivity.class)
-                .setAction(ACTION_HANDLE_AUTH)
-                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-
-        PendingIntent completionPendingIntent = PendingIntent.getActivity(
-                this,
-                0,
-                completionIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
-
-        /* 2️⃣  Let AppAuth launch the Custom Tab and manage the redirect */
-        authService.performAuthorizationRequest(req, completionPendingIntent);  // <-- correct call :contentReference[oaicite:2]{index=2}
-    }
-
-
-    private void handleSpotifyRedirect(Intent intent) {
-        Log.d("AUTH", "Handling intent: " + intent);
-        Log.d("AUTH", "Data: " + intent.getData());
-        AuthorizationResponse response = AuthorizationResponse.fromIntent(intent);
-        AuthorizationException ex      = AuthorizationException.fromIntent(intent);
-        Log.d("RESPONSE", "REsponse" + response);
-        if (ex != null) {
-            Log.d("Spotify", "Authorization failed");
-            Log.d("Spotify", "Type: " + ex.type); // general category (e.g., AUTHORIZATION_FAILED)
-            Log.d("Spotify", "Code: " + ex.code); // specific error code
-            Log.d("Spotify", "Description: " + ex.errorDescription); // human-readable explanation
-            Log.d("Spotify", "URI: " + ex.errorUri); // link to documentation if available
-            Log.d("Spotify", "JSON: " + ex.toJsonString()); // complete details as JSON
-            Log.d("Spotify", "Cause: ", ex); // print full stack trace
-        }
-        if (response != null) {
-            // success – we got the code
-            Log.d("Spotify", "Auth code = " + response.authorizationCode);
-
-            AuthorizationService authService = new AuthorizationService(this);
-            TokenRequest tokenRequest = response.createTokenExchangeRequest(); // PKCE handled automatically
-
-            authService.performTokenRequest(
-                    tokenRequest,
-                    (tokenResponse, exception) -> {
-                        if (tokenResponse != null) {
-                            Log.d("Spotify", "Access-Token: " + tokenResponse.accessToken);
-                            getUserProfile(tokenResponse.accessToken);
-                        } else {
-                            Log.e("Spotify", "Token exchange failed", exception);
-                        }
-                    });
-        } else if (ex != null) {
-            Log.e("Spotify", "Authorization failed", ex);
-            Log.e("Spotify", ex.toJsonString());
-        }
     }
 
 
