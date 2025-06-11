@@ -46,6 +46,10 @@ public class MainActivity extends AppCompatActivity {
     private static SpotifyAppRemote mSpotifyAppRemote;
 
     private static double hrv;
+    private static double hrvPrevious;
+
+    private static double hrvDiff;
+    private static int heartRate;
     private AntPlusHeartRatePcc hrPcc;
     private AuthorizationRequest authRequest;
     private AuthorizationService authService;
@@ -123,6 +127,12 @@ public class MainActivity extends AppCompatActivity {
     public static double getHrv(){
         return hrv;
     }
+    public static double getPreviousHrv(){
+        return hrvPrevious;
+    }
+    public static int getHeartRate(){
+        return heartRate;
+    }
 
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
@@ -184,7 +194,7 @@ public class MainActivity extends AppCompatActivity {
                 ResponseTypeValues.CODE,
                 Uri.parse("heartratedj://callback")   // same redirect URI!
         )
-                .setScopes("user-read-private","user-read-email","app-remote-control")             // <- any scopes you need
+                .setScopes(WEBAPI_SCOPES)             // <- any scopes you need
                 .build();
 
         if (authService == null) authService = new AuthorizationService(this);
@@ -264,6 +274,7 @@ public class MainActivity extends AppCompatActivity {
         hrPcc.subscribeHeartRateDataEvent(
                 (estTimestamp, eventFlags, computedHeartRate, heartBeatCount, heartBeatEventTime, dataState) -> {
                     //Log.d("ANT+", "HR: " + computedHeartRate);
+                    heartRate = computedHeartRate;
                     double heartBeatEventTimeInt = heartBeatEventTime.doubleValue();
 
 
@@ -289,12 +300,22 @@ public class MainActivity extends AppCompatActivity {
                             rrValues.remove(0);  // Remove the oldest
                         }
                         rrValues.add(rr);
-                        if (System.currentTimeMillis() - startTime[0] >= 1 * 60 * 1000) {
+                        if (System.currentTimeMillis() - startTime[0] >= 0.5 * 60 * 1000) {
+                            hrvPrevious = hrv;
                             double rmssd = calculateRMSSD(rrValues);
                             //Log.d("HRV", "RMSSD (2min): " + rmssd);
                             hrv = rmssd;
                             startTime[0] = System.currentTimeMillis();
                             rrValues.clear();
+                            SpotifyPlayer player = new SpotifyPlayer(webApiAccessToken);
+                            Log.d("SpotifyPLayer", "player" + player);
+                            try {
+                                if (Math.abs(hrvPrevious - hrv) > 40) {
+                                    player.search_songs();
+                                }
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
                         }
                     }
                     else{
