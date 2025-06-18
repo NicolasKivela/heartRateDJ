@@ -310,9 +310,8 @@ public class MainActivity extends AppCompatActivity {
                             SpotifyPlayer player = new SpotifyPlayer(webApiAccessToken);
                             Log.d("SpotifyPLayer", "player" + player);
                             try {
-                                if (Math.abs(hrvPrevious - hrv) > 40) {
                                     player.search_songs();
-                                }
+
                             } catch (IOException e) {
                                 throw new RuntimeException(e);
                             }

@@ -48,6 +48,13 @@ public class SpotifyPlayer {
 
         playSong(uri);
     }
+    public void setNewSongQueue(String uri){
+        this.nextSongUri = uri;
+        Log.d("setNewsong", "Setting current song: " + uri);
+
+        queueSong(uri);
+    }
+
     private void onCreate() throws IOException {
         if (remote == null) {
             Log.e("Spotify", "Spotify not connected");
@@ -93,6 +100,17 @@ public class SpotifyPlayer {
             Log.e("Spotify", "AppRemote is null or not connected");
         }
     }
+    public void queueSong(String uri){
+        Log.d("Spotify", "queueSong activated: " + currentSongUri);
+
+        if (remote != null && remote.isConnected()) {
+            remote.getPlayerApi().queue(uri);
+            Log.d("Spotify", "quueues: " + uri);
+        } else {
+            Log.e("Spotify", "AppRemote is null or not connected");
+        }
+    }
+
     private static String randomGenre(String[] genres) {
         return genres[new Random().nextInt(genres.length)];
     }
@@ -103,10 +121,16 @@ public class SpotifyPlayer {
             return randomGenre(new String[]{"ambient", "acoustic", "chill", "classical", "sleep"});
         } else if (hrv < 70) {
             // Medium HRV → maintain balance
-            return randomGenre(new String[]{"pop", "indie", "singer-songwriter", "folk", "jazz"});
-        } else {
+            return randomGenre(new String[]{"pop", "indie", "folk", "jazz"});
+        } else if (hrv < 110){
             // High HRV → active, energetic
-            return randomGenre(new String[]{"electronic", "edm", "rock", "hip-hop", "dance", "drum and bass"});
+            return randomGenre(new String[]{"electronic", "edm", "rock", "hip-hop", "dance","130BPM"});
+        }
+        else if (hrv < 140){
+            return randomGenre(new String[]{"rally house","drum and bass","140BPM"});
+        }
+        else{
+            return randomGenre(new String[]{"hard style", "hardcore", "heavy metal"});
         }
     }
     private void setContentView(int spotifyPlayer) {
@@ -180,7 +204,15 @@ public class SpotifyPlayer {
                 Log.d("TRACK", "Track: " + name + " by " + artist);
                 Log.d("TRACK_URI", "URI: " + uri);
                 //filterSongs(idArray, token);
+                if (Math.abs(hrvPrevious-hrv) < 15) {
+                    setNewSongQueue(uri);
+                    Log.d("TRACK_URI", "Queue updated" + uri);
+                }
+
                 setNewSong(uri);
+
+
+
                 previousHrv = hrv;
             } catch (IOException e) {
                 Log.e("ERROR", "Error reading response", e);
