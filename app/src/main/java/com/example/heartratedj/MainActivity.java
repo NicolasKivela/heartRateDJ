@@ -29,6 +29,7 @@ import java.util.List;
 import java.lang.String;
 import android.content.Intent;
 import android.net.Uri;
+import android.widget.TextView;
 
 import net.openid.appauth.AuthorizationException;
 import net.openid.appauth.AuthorizationRequest;
@@ -39,11 +40,14 @@ import net.openid.appauth.ResponseTypeValues;
 import net.openid.appauth.TokenRequest;
 
 
+
 public class MainActivity extends AppCompatActivity {
 
     private static final String CLIENT_ID = "bb6c51e8855242ba8cca8c251759cd79";
     private static final String REDIRECT_URI = "heartratedj://callback";
     private static SpotifyAppRemote mSpotifyAppRemote;
+
+    private SpotifyPlayer player;
 
     private static double hrv;
     private static double hrvPrevious;
@@ -60,7 +64,11 @@ public class MainActivity extends AppCompatActivity {
     private final List<Double> beatEventTimes = new ArrayList<>();
     private final List<Double> rrIntervals = new ArrayList<>();
     List<Double> rrValues = new ArrayList<>();
+
     public static String webApiAccessToken;
+
+    TextView tvHeartRate, tvHRV, tvCurrentSong, tvNextSong;
+
     @Override protected void onStart() {
         super.onStart();
 
@@ -94,6 +102,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        tvHeartRate     = findViewById(R.id.tvHeartRate);
+        tvHRV           = findViewById(R.id.tvHRV);
+        tvCurrentSong   = findViewById(R.id.tvCurrentSong);
+        tvNextSong      = findViewById(R.id.tvNextSong);
         handleAuthIntent(getIntent());
         findViewById(R.id.antConnect).setOnClickListener(v -> {
             Log.d("ANT CONNECT", "CONNECTED TO ANT");
@@ -106,10 +118,10 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.playMusic).setOnClickListener(v -> {
             Log.d("Play music clicked", "Play Music");
 
-            SpotifyPlayer player = new SpotifyPlayer(webApiAccessToken);
-            Log.d("SpotifyPLayer", "player" + player);
+            player.fetchCurrentPlayback();
+
             try {
-                player.search_songs();
+                player.search_songs(true);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -164,6 +176,23 @@ public class MainActivity extends AppCompatActivity {
                     if (webApiTokenCallback != null) {
                         webApiTokenCallback.onTokenReady(webApiAccessToken);
                     }
+                    player = new SpotifyPlayer(webApiAccessToken);
+                    player.setSongUpdateListener(new SpotifyPlayer.SongUpdateListener() {
+                        @Override
+                        public void onSongChanged(String name, String artist) {
+                            runOnUiThread(() ->
+                                    tvCurrentSong.setText("Now Playing: " + name + " – " + artist)
+                            );
+                        }
+
+                        @Override
+                        public void onNextSongQueued(String name, String artist) {
+                            runOnUiThread(() ->
+                                    tvNextSong.setText("Added to queue: " + name + " – " + artist)
+                            );
+                        }
+                    });
+
                 } else {
                     Log.e("WEBAPI", "token exchange failed", tokEx);
                 }
@@ -178,7 +207,10 @@ public class MainActivity extends AppCompatActivity {
             "user-read-email",
             "playlist-read-private",
             "playlist-modify-private",
-            "app-remote-control"
+            "app-remote-control",
+            "user-read-playback-state",
+            "user-modify-playback-state",
+
     };
     public interface TokenCallback {
         void onTokenReady(String token);
@@ -276,12 +308,16 @@ public class MainActivity extends AppCompatActivity {
                     //Log.d("ANT+", "HR: " + computedHeartRate);
                     heartRate = computedHeartRate;
                     double heartBeatEventTimeInt = heartBeatEventTime.doubleValue();
-
+                    if (player != null) {
+                        player.adjustVolumeByHeartRate(computedHeartRate);
+                    }
 
                     if (heartBeatEventTimeInt == lastProcessedBeatTime) {
                         return;
                     }
-
+                    runOnUiThread(() -> {
+                        tvHeartRate.setText("Heart Rate: " + computedHeartRate + " bpm");
+                    });
                     lastProcessedBeatTime = heartBeatEventTimeInt;
                     //Log.d("heartbeattime", "This is HRBtime" + heartBeatEventTimeInt);
                     if (!beatEventTimes.isEmpty()){
@@ -303,14 +339,27 @@ public class MainActivity extends AppCompatActivity {
                         if (System.currentTimeMillis() - startTime[0] >= 0.5 * 60 * 1000) {
                             hrvPrevious = hrv;
                             double rmssd = calculateRMSSD(rrValues);
+                            if (player != null) {
+                                int newVolume = 65; // or calculate based on heart rate
+                                player.setSpotifyVolumeWithoutDeviceId(newVolume);
+                            }
                             //Log.d("HRV", "RMSSD (2min): " + rmssd);
                             hrv = rmssd;
+                            runOnUiThread(() -> {
+                                tvHRV.setText("HRV: " + String.format("%.1f", hrv));
+                            });
                             startTime[0] = System.currentTimeMillis();
                             rrValues.clear();
-                            SpotifyPlayer player = new SpotifyPlayer(webApiAccessToken);
+                            //SpotifyPlayer player = new SpotifyPlayer(webApiAccessToken);
+
                             Log.d("SpotifyPLayer", "player" + player);
                             try {
-                                    player.search_songs();
+                                if (player != null) {
+                                    player.search_songs(false);
+                                }
+                                else{
+                                    Log.d("PLAYER", "PLAYER IS NULL");
+                                }
 
                             } catch (IOException e) {
                                 throw new RuntimeException(e);

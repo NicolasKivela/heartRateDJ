@@ -19,5 +19,33 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Connect Heart Rate Monitor"/>
+    <TextView
+        android:id="@+id/tvHeartRate"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Heart Rate: -- bpm"
+        android:textSize="18sp" />
+
+    <TextView
+        android:id="@+id/tvHRV"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="HRV: --"
+        android:textSize="18sp" />
+
+    <TextView
+        android:id="@+id/tvCurrentSong"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Now Playing: --"
+        android:textSize="18sp" />
+
+    <TextView
+        android:id="@+id/tvNextSong"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Next Up: --"
+        android:textSize="18sp" />
+
 
 </LinearLayout>

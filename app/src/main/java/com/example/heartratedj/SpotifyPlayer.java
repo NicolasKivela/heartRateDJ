@@ -35,6 +35,8 @@ public class SpotifyPlayer {
     private double previousHrv;
     private String currentSongUri;
     private String nextSongUri;
+    private SongUpdateListener songListener;
+
     private final String token;   // pass it in the constructor
     private String[]  idArray;
     private int minBPM, maxBPM;
@@ -48,11 +50,19 @@ public class SpotifyPlayer {
 
         playSong(uri);
     }
+    public void setSongUpdateListener(SongUpdateListener listener) {
+        this.songListener = listener;
+    }
     public void setNewSongQueue(String uri){
         this.nextSongUri = uri;
         Log.d("setNewsong", "Setting current song: " + uri);
 
         queueSong(uri);
+
+    }
+    public interface SongUpdateListener {
+        void onSongChanged(String currentSong, String artist);
+        void onNextSongQueued(String nextSong, String artist);
     }
 
     private void onCreate() throws IOException {
@@ -96,6 +106,7 @@ public class SpotifyPlayer {
         if (remote != null && remote.isConnected()) {
             remote.getPlayerApi().play(uri);
             Log.d("Spotify", "Playing random track: " + uri);
+
         } else {
             Log.e("Spotify", "AppRemote is null or not connected");
         }
@@ -116,23 +127,46 @@ public class SpotifyPlayer {
     }
     public static String recommendGenre(double hrv) {
         Log.d("recommendHrv", "HRV " + hrv);
+
         if (hrv < 30) {
-            // Low HRV → reduce stress
-            return randomGenre(new String[]{"ambient", "acoustic", "chill", "classical", "sleep"});
+            return randomGenre(new String[]{
+                    "drum and bass", "neurofunk", "breakcore", "hardstyle", "gabber", "jungle",
+                    "big room", "progressive trance", "psytrance", "tech trance",
+                    "bass house", "glitch hop", "electro house", "dubstep", "future rave"
+            });
+        } else if (hrv < 50) {
+            return randomGenre(new String[]{
+                    "liquid drum and bass", "melodic dubstep", "uk garage", "synthwave",
+                    "electrofunk", "indietronica", "grime", "vaportrap", "trap edm", "g-house"
+            });
         } else if (hrv < 70) {
-            // Medium HRV → maintain balance
-            return randomGenre(new String[]{"pop", "indie", "folk", "jazz"});
-        } else if (hrv < 110){
-            // High HRV → active, energetic
-            return randomGenre(new String[]{"electronic", "edm", "rock", "hip-hop", "dance","130BPM"});
-        }
-        else if (hrv < 140){
-            return randomGenre(new String[]{"rally house","drum and bass","140BPM"});
-        }
-        else{
-            return randomGenre(new String[]{"hard style", "hardcore", "heavy metal"});
+            return randomGenre(new String[]{
+                    "chillstep", "tropical house", "lofi house", "future funk", "alt r&b",
+                    "dream pop", "bedroom pop", "city pop", "nu jazz", "electronic soul"
+            });
+        } else if (hrv < 90) {
+            return randomGenre(new String[]{
+                    "chillhop", "jazzhop", "slow disco", "boogie", "balearic", "indie folk",
+                    "soft shoegaze", "downtempo electronica", "vaporwave", "deep chill"
+            });
+        } else if (hrv < 110) {
+            return randomGenre(new String[]{
+                    "indie rock", "surf rock", "garage rock revival", "psychedelic pop",
+                    "alternative rock", "sunshine pop", "tropical indie", "soulful indie", "americana", "modern blues"
+            });
+        } else if (hrv < 140) {
+            return randomGenre(new String[]{
+                    "laid-back indie", "beach rock", "chill garage", "slacker rock",
+                    "nu gaze", "indie soul", "folk rock", "bedroom garage", "dreampop rock"
+            });
+        } else {
+            return randomGenre(new String[]{
+                    "modern psychedelia", "vintage surf", "low-key funk", "retro soul",
+                    "jangle pop", "stoner indie", "west coast alt", "mellow rock"
+            });
         }
     }
+
     private void setContentView(int spotifyPlayer) {
     }
 
@@ -142,7 +176,73 @@ public class SpotifyPlayer {
             remote.getPlayerApi().play("spotify:playlist:37i9dQZF1DX2sUQwD7tbmL");
         }
     }
-    public void search_songs() throws IOException {
+    public void setSpotifyVolumeWithoutDeviceId(int volumePercent) {
+        if (token == null || token.isEmpty()) {
+            Log.e("SPOTIFY_VOLUME", "Missing token");
+            return;
+        }
+
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.execute(() -> {
+            try {
+                String urlStr = "https://api.spotify.com/v1/me/player/volume?volume_percent=" + volumePercent;
+                URL url = new URL(urlStr);
+                HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+                conn.setRequestMethod("PUT");
+                conn.setRequestProperty("Authorization", "Bearer " + token);
+                conn.setDoOutput(true);  // even though body is empty, needed for PUT
+                int responseCode = conn.getResponseCode();
+                Log.d("SPOTIFY_VOLUME", "Set volume " + volumePercent + " → HTTP " + responseCode);
+                conn.disconnect();
+            } catch (IOException e) {
+                Log.e("SPOTIFY_VOLUME", "Failed to set volume", e);
+            }
+        });
+    }
+    public void fetchCurrentPlayback() {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.execute(() -> {
+            try {
+                Log.d("FETCH CURRENT PLAYBACK", token);
+                URL url = new URL("https://api.spotify.com/v1/me/player/currently-playing");
+                HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("Authorization", "Bearer " + token);
+
+                int code = conn.getResponseCode();
+                if (code == 204) {
+                    Log.d("Spotify", "No song currently playing.");
+                    return;
+                }
+
+                if (code != 200) {
+                    Log.e("Spotify", "Error fetching playback: " + code);
+                    return;
+                }
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) sb.append(line);
+                reader.close();
+                conn.disconnect();
+
+                JSONObject json = new JSONObject(sb.toString());
+                JSONObject item = json.getJSONObject("item");
+                String name = item.getString("name");
+                String artist = item.getJSONArray("artists").getJSONObject(0).getString("name");
+
+                if (songListener != null) {
+                    songListener.onSongChanged(name, artist);
+                }
+
+            } catch (Exception e) {
+                Log.e("Spotify", "Failed to fetch current song", e);
+            }
+        });
+    }
+
+    public void search_songs(boolean skip) throws IOException {
         ExecutorService executor = Executors.newSingleThreadExecutor();
         executor.execute(() -> {
             String[] letters = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k","l","m","n","o","p","q","r","s","t","u","p","x","y","z","ö","ä","å"};
@@ -203,14 +303,21 @@ public class SpotifyPlayer {
 
                 Log.d("TRACK", "Track: " + name + " by " + artist);
                 Log.d("TRACK_URI", "URI: " + uri);
+
                 //filterSongs(idArray, token);
                 if (Math.abs(hrvPrevious-hrv) < 15) {
                     setNewSongQueue(uri);
                     Log.d("TRACK_URI", "Queue updated" + uri);
                 }
 
-                setNewSong(uri);
+                setNewSongQueue(uri);
+                if (songListener != null) {
+                    songListener.onNextSongQueued(name, artist);
+                }
 
+                if (songListener != null && skip == true) {
+                    songListener.onNextSongQueued(name, artist);
+                }
 
 
                 previousHrv = hrv;
@@ -225,6 +332,85 @@ public class SpotifyPlayer {
         }});
 
 }
+    public void adjustVolumeByHeartRate(int heartRate) {
+        int minHR = 60;   // Resting
+        int maxHR = 160;  // Running
+        int minVolume = 30;
+        int maxVolume = 100;
+
+        if (heartRate < minHR) heartRate = minHR;
+        if (heartRate > maxHR) heartRate = maxHR;
+
+        int volume = minVolume + (int)(((double)(heartRate - minHR) / (maxHR - minHR)) * (maxVolume - minVolume));
+        changeVolume(volume);
+    }
+    public void changeVolume(int volumePercent) {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.execute(() -> {
+            try {
+                // First, get the list of devices
+                URL deviceUrl = new URL("https://api.spotify.com/v1/me/player/devices");
+                HttpsURLConnection connDevices = (HttpsURLConnection) deviceUrl.openConnection();
+                connDevices.setRequestMethod("GET");
+                connDevices.setRequestProperty("Authorization", "Bearer " + token);
+
+                int deviceCode = connDevices.getResponseCode();
+                if (deviceCode != 200) {
+                    Log.e("SpotifyVolume", "Failed to get devices | HTTP " + deviceCode);
+                    return;
+                }
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(connDevices.getInputStream()));
+                StringBuilder result = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) result.append(line);
+                reader.close();
+                connDevices.disconnect();
+
+                JSONObject json = new JSONObject(result.toString());
+                JSONArray devices = json.getJSONArray("devices");
+
+                String activeDeviceId = null;
+                for (int i = 0; i < devices.length(); i++) {
+                    JSONObject device = devices.getJSONObject(i);
+                    if (device.getBoolean("is_active") && !device.getBoolean("is_restricted")) {
+                        activeDeviceId = device.getString("id");
+                        break;
+                    }
+                }
+
+                if (activeDeviceId == null) {
+                    Log.e("SpotifyVolume", "No active controllable device found.");
+                    return;
+                }
+
+                // Log info about the current active device
+                URL urlplayer = new URL("https://api.spotify.com/v1/me/player");
+                HttpsURLConnection connplayer = (HttpsURLConnection) urlplayer.openConnection();
+                connplayer.setRequestMethod("GET");
+                connplayer.setRequestProperty("Authorization", "Bearer " + token);
+                connplayer.setDoOutput(true);
+                Log.d("SpotifyVolume", "player: " + connplayer.toString());
+
+                // Now send volume request with device_id
+                String volumeUrlStr = "https://api.spotify.com/v1/me/player/volume?volume_percent=" + volumePercent +
+                        "&device_id=" + URLEncoder.encode(activeDeviceId, "UTF-8");
+                URL url = new URL(volumeUrlStr);
+                HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+                conn.setRequestMethod("PUT");
+                conn.setRequestProperty("Authorization", "Bearer " + token);
+                conn.setDoOutput(true);
+                Log.d("CHANGE VOLUME", token);
+                int code = conn.getResponseCode();
+                Log.d("SpotifyVolume", "Volume set to " + volumePercent + " | HTTP " + code);
+                conn.disconnect();
+
+            } catch (IOException | JSONException e) {
+                Log.e("SpotifyVolume", "Failed to set volume", e);
+            }
+        });
+    }
+
     public void filterSongs(String[] uriArray, String token){
         Log.d("filterSongs", "Filtering songs");
         Log.d("filterSongs", "Token " + token);
