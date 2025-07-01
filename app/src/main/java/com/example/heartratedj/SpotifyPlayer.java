@@ -44,6 +44,11 @@ public class SpotifyPlayer {
     public SpotifyPlayer(String webApiToken) {
         this.token = webApiToken;
     }
+
+
+    public void updateRemote(SpotifyAppRemote remote) {
+        this.remote = remote;
+    }
     public void setNewSong(String uri){
         this.currentSongUri = uri;
         Log.d("setNewsong", "Setting current song: " + uri);
@@ -130,42 +135,35 @@ public class SpotifyPlayer {
 
         if (hrv < 30) {
             return randomGenre(new String[]{
-                    "drum and bass", "neurofunk", "breakcore", "hardstyle", "gabber", "jungle",
-                    "big room", "progressive trance", "psytrance", "tech trance",
-                    "bass house", "glitch hop", "electro house", "dubstep", "future rave"
+                    "edm", "techno", "trance", "house", "dubstep", "hardstyle"
             });
         } else if (hrv < 50) {
             return randomGenre(new String[]{
-                    "liquid drum and bass", "melodic dubstep", "uk garage", "synthwave",
-                    "electrofunk", "indietronica", "grime", "vaportrap", "trap edm", "g-house"
+                    "electronic", "dance", "trap", "garage", "synth-pop"
             });
         } else if (hrv < 70) {
             return randomGenre(new String[]{
-                    "chillstep", "tropical house", "lofi house", "future funk", "alt r&b",
-                    "dream pop", "bedroom pop", "city pop", "nu jazz", "electronic soul"
+                    "chill", "lo-fi", "chillhop", "indie pop", "ambient"
             });
         } else if (hrv < 90) {
             return randomGenre(new String[]{
-                    "chillhop", "jazzhop", "slow disco", "boogie", "balearic", "indie folk",
-                    "soft shoegaze", "downtempo electronica", "vaporwave", "deep chill"
+                    "jazz", "soul", "acoustic", "folk", "indie folk"
             });
         } else if (hrv < 110) {
             return randomGenre(new String[]{
-                    "indie rock", "surf rock", "garage rock revival", "psychedelic pop",
-                    "alternative rock", "sunshine pop", "tropical indie", "soulful indie", "americana", "modern blues"
+                    "rock", "alternative", "indie rock", "classic rock", "blues"
             });
         } else if (hrv < 140) {
             return randomGenre(new String[]{
-                    "laid-back indie", "beach rock", "chill garage", "slacker rock",
-                    "nu gaze", "indie soul", "folk rock", "bedroom garage", "dreampop rock"
+                    "pop", "soft rock", "funk", "singer-songwriter", "chill pop"
             });
         } else {
             return randomGenre(new String[]{
-                    "modern psychedelia", "vintage surf", "low-key funk", "retro soul",
-                    "jangle pop", "stoner indie", "west coast alt", "mellow rock"
+                    "psychedelic rock", "oldies", "soul", "retro", "classic soul"
             });
         }
     }
+
 
     private void setContentView(int spotifyPlayer) {
     }
@@ -305,20 +303,22 @@ public class SpotifyPlayer {
                 Log.d("TRACK_URI", "URI: " + uri);
 
                 //filterSongs(idArray, token);
-                if (Math.abs(hrvPrevious-hrv) < 15) {
+
+
+
+
+                if (skip) {
+                    setNewSong(uri);  // Immediately play if skipping
+                    if (songListener != null) {
+                        songListener.onSongChanged(name, artist);
+                    }
+                }
+                if (!skip && Math.abs(hrvPrevious-hrv) < 15) {
                     setNewSongQueue(uri);
-                    Log.d("TRACK_URI", "Queue updated" + uri);
+                    if (songListener != null) {
+                        songListener.onNextSongQueued(name, artist);
+                    }
                 }
-
-                setNewSongQueue(uri);
-                if (songListener != null) {
-                    songListener.onNextSongQueued(name, artist);
-                }
-
-                if (songListener != null && skip == true) {
-                    songListener.onNextSongQueued(name, artist);
-                }
-
 
                 previousHrv = hrv;
             } catch (IOException e) {

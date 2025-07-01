@@ -81,7 +81,9 @@ public class MainActivity extends AppCompatActivity {
             @Override public void onConnected(SpotifyAppRemote remote) {
                 mSpotifyAppRemote = remote;
                 Log.d("MainActivity", "Connected!");
-
+                if (player != null) {
+                    player.updateRemote(remote);
+                }
             }
 
             @Override public void onFailure(Throwable error) {
@@ -177,6 +179,7 @@ public class MainActivity extends AppCompatActivity {
                         webApiTokenCallback.onTokenReady(webApiAccessToken);
                     }
                     player = new SpotifyPlayer(webApiAccessToken);
+                    player.updateRemote(mSpotifyAppRemote);
                     player.setSongUpdateListener(new SpotifyPlayer.SongUpdateListener() {
                         @Override
                         public void onSongChanged(String name, String artist) {
@@ -308,9 +311,9 @@ public class MainActivity extends AppCompatActivity {
                     //Log.d("ANT+", "HR: " + computedHeartRate);
                     heartRate = computedHeartRate;
                     double heartBeatEventTimeInt = heartBeatEventTime.doubleValue();
-                    if (player != null) {
-                        player.adjustVolumeByHeartRate(computedHeartRate);
-                    }
+                    //if (player != null) {
+                       // player.adjustVolumeByHeartRate(computedHeartRate);
+                    //}
 
                     if (heartBeatEventTimeInt == lastProcessedBeatTime) {
                         return;
@@ -336,7 +339,7 @@ public class MainActivity extends AppCompatActivity {
                             rrValues.remove(0);  // Remove the oldest
                         }
                         rrValues.add(rr);
-                        if (System.currentTimeMillis() - startTime[0] >= 0.5 * 60 * 1000) {
+                        if (System.currentTimeMillis() - startTime[0] >= 1 * 60 * 1000) {
                             hrvPrevious = hrv;
                             double rmssd = calculateRMSSD(rrValues);
                             if (player != null) {
