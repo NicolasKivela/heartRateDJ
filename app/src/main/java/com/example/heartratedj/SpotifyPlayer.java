@@ -31,7 +31,7 @@ public class SpotifyPlayer {
     double hrvPrevious = MainActivity.getPreviousHrv();
 
     int heartRate = MainActivity.getHeartRate();
-
+    private int previousHeartRate;
     private double previousHrv;
     private String currentSongUri;
     private String nextSongUri;
@@ -130,39 +130,38 @@ public class SpotifyPlayer {
     private static String randomGenre(String[] genres) {
         return genres[new Random().nextInt(genres.length)];
     }
-    public static String recommendGenre(double hrv) {
-        Log.d("recommendHrv", "HRV " + hrv);
+    public static String recommendGenre(double hrv, int heartRate) {
+        Log.d("recommendGenre", "HR: " + heartRate + " | HRV: " + hrv);
 
-        if (hrv < 30) {
+        if (heartRate < 60) {
+            // Lightly active or resting – moderate energy
             return randomGenre(new String[]{
-                    "edm", "techno", "trance", "house", "dubstep", "hardstyle"
+                    "indie pop", "indie rock", "folk pop", "dream pop", "synth-pop"
             });
-        } else if (hrv < 50) {
+        } else if (heartRate < 90) {
+            // Warm-up pace – balanced energy
             return randomGenre(new String[]{
-                    "electronic", "dance", "trap", "garage", "synth-pop"
+                    "pop rock", "alt pop", "funk", "nu-disco", "electropop"
             });
-        } else if (hrv < 70) {
+        } else if (heartRate < 110) {
+            // Moderate workout – energetic
             return randomGenre(new String[]{
-                    "chill", "lo-fi", "chillhop", "indie pop", "ambient"
+                    "dance pop", "house", "garage", "electronic", "future bass"
             });
-        } else if (hrv < 90) {
+        } else if (heartRate < 130) {
+            // Intense cardio – high energy
             return randomGenre(new String[]{
-                    "jazz", "soul", "acoustic", "folk", "indie folk"
-            });
-        } else if (hrv < 110) {
-            return randomGenre(new String[]{
-                    "rock", "alternative", "indie rock", "classic rock", "blues"
-            });
-        } else if (hrv < 140) {
-            return randomGenre(new String[]{
-                    "pop", "soft rock", "funk", "singer-songwriter", "chill pop"
+                    "edm", "trance", "techno", "big room", "drum and bass"
             });
         } else {
+            // Sprint/HIIT – maximum energy
             return randomGenre(new String[]{
-                    "psychedelic rock", "oldies", "soul", "retro", "classic soul"
+                    "hardstyle", "dubstep", "industrial", "gabber", "speedcore"
             });
         }
     }
+
+
 
 
     private void setContentView(int spotifyPlayer) {
@@ -244,7 +243,7 @@ public class SpotifyPlayer {
         ExecutorService executor = Executors.newSingleThreadExecutor();
         executor.execute(() -> {
             String[] letters = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k","l","m","n","o","p","q","r","s","t","u","p","x","y","z","ö","ä","å"};
-            String genre = recommendGenre(hrv);
+            String genre = recommendGenre(hrv,heartRate);
             String randomChar = letters[new Random().nextInt(letters.length)];
             int randomOffset = new Random().nextInt(500);
             try {String searchTerm = randomChar + " genre:\"" + genre + "\"";
@@ -313,7 +312,7 @@ public class SpotifyPlayer {
                         songListener.onSongChanged(name, artist);
                     }
                 }
-                if (!skip && Math.abs(hrvPrevious-hrv) < 15) {
+                if (!skip) {
                     setNewSongQueue(uri);
                     if (songListener != null) {
                         songListener.onNextSongQueued(name, artist);

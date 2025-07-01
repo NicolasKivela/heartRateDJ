@@ -54,11 +54,13 @@ public class MainActivity extends AppCompatActivity {
 
     private static double hrvDiff;
     private static int heartRate;
+
     private AntPlusHeartRatePcc hrPcc;
     private AuthorizationRequest authRequest;
     private AuthorizationService authService;
     private static final String ACTION_HANDLE_AUTH = "HANDLE_AUTH_DONE";
-
+    private int  prevHrForJump   = -1;
+    private long lastHrJumpCheck = 0;
     private TokenCallback webApiTokenCallback;
     private PccReleaseHandle<AntPlusHeartRatePcc> releaseHandle;
     private final List<Double> beatEventTimes = new ArrayList<>();
@@ -310,6 +312,31 @@ public class MainActivity extends AppCompatActivity {
                 (estTimestamp, eventFlags, computedHeartRate, heartBeatCount, heartBeatEventTime, dataState) -> {
                     //Log.d("ANT+", "HR: " + computedHeartRate);
                     heartRate = computedHeartRate;
+                    // ───────── 10-second HR-jump trigger ─────────
+                    long now = System.currentTimeMillis();
+                    Log.d("HR-JUMP", "Current HR: " + heartRate);
+                    Log.d("HR-JUMP", "Previous HR: " + prevHrForJump);
+                    Log.d("HR-JUMP", "Last check: " + lastHrJumpCheck);
+                    Log.d("HR-JUMP", "Now: " + now);
+                    Log.d("HR-JUMP", "Elapsed: " + (now - lastHrJumpCheck) + " ms");
+                    if (prevHrForJump < 0) {
+                        prevHrForJump   = heartRate;
+                        lastHrJumpCheck = now;
+                        return;
+                    }
+
+                    if (now - lastHrJumpCheck >= 10_000) {
+                        if (Math.abs(heartRate - prevHrForJump) > 10) {
+                            if (player != null) {
+                                try { player.search_songs(true); }
+                                catch (IOException e) { Log.e("HR-JUMP", "search failed", e); }
+                            }
+                        }
+                        prevHrForJump   = heartRate;
+                        lastHrJumpCheck = now;
+                    }
+// ─────────────────────────────────────────────
+
                     double heartBeatEventTimeInt = heartBeatEventTime.doubleValue();
                     //if (player != null) {
                        // player.adjustVolumeByHeartRate(computedHeartRate);
