@@ -312,30 +312,44 @@ public class MainActivity extends AppCompatActivity {
                 (estTimestamp, eventFlags, computedHeartRate, heartBeatCount, heartBeatEventTime, dataState) -> {
                     //Log.d("ANT+", "HR: " + computedHeartRate);
                     heartRate = computedHeartRate;
-                    // ───────── 10-second HR-jump trigger ─────────
-                    long now = System.currentTimeMillis();
-                    Log.d("HR-JUMP", "Current HR: " + heartRate);
-                    Log.d("HR-JUMP", "Previous HR: " + prevHrForJump);
-                    Log.d("HR-JUMP", "Last check: " + lastHrJumpCheck);
-                    Log.d("HR-JUMP", "Now: " + now);
-                    Log.d("HR-JUMP", "Elapsed: " + (now - lastHrJumpCheck) + " ms");
-                    if (prevHrForJump < 0) {
-                        prevHrForJump   = heartRate;
-                        lastHrJumpCheck = now;
-                        return;
+                    if (player != null) {
+                        player.updateMetrics(hrv, computedHeartRate);
                     }
 
-                    if (now - lastHrJumpCheck >= 10_000) {
-                        if (Math.abs(heartRate - prevHrForJump) > 10) {
-                            if (player != null) {
-                                try { player.search_songs(true); }
-                                catch (IOException e) { Log.e("HR-JUMP", "search failed", e); }
+                    long now = System.currentTimeMillis();
+                    int difference = heartRate - prevHrForJump;
+                    boolean hrRising   = difference >= 10;
+                    boolean hrFalling  = difference <= -20;
+
+                    long risingCooldown = 12_000;
+                    long fallingCooldown = 30_000;
+                    long fallbackSkip    = 240_000;
+
+                    long cooldown = hrRising ? risingCooldown : hrFalling ? fallingCooldown : fallbackSkip;
+                    long elapsed = now - lastHrJumpCheck;
+
+                    Log.d("HR-JUMP", "Current HR: " + heartRate);
+                    Log.d("HR-JUMP", "Previous HR: " + prevHrForJump);
+                    Log.d("HR-JUMP", "Diff: " + difference + " bpm");
+                    Log.d("HR-JUMP", "Now: " + now);
+                    Log.d("HR-JUMP", "Last check: " + lastHrJumpCheck);
+                    Log.d("HR-JUMP", "HR rising? " + hrRising + " | falling? " + hrFalling);
+                    Log.d("HR-JUMP", "Cooldown set to: " + cooldown + " ms");
+                    Log.d("HR-JUMP", "Elapsed since last: " + elapsed + " ms");
+
+                    if (elapsed >= cooldown && Math.abs(difference) >= 5) {
+                        Log.d("HR-JUMP", "🔥 Skipping song due to HR change");
+                        if (player != null) {
+                            try {
+                                player.search_songs(true);
+                            } catch (IOException e) {
+                                Log.e("HR-JUMP", "search_songs failed", e);
                             }
                         }
-                        prevHrForJump   = heartRate;
+                        prevHrForJump = heartRate;
                         lastHrJumpCheck = now;
                     }
-// ─────────────────────────────────────────────
+
 
                     double heartBeatEventTimeInt = heartBeatEventTime.doubleValue();
                     //if (player != null) {
@@ -375,6 +389,9 @@ public class MainActivity extends AppCompatActivity {
                             }
                             //Log.d("HRV", "RMSSD (2min): " + rmssd);
                             hrv = rmssd;
+                            if (player != null) {
+                                player.updateMetrics(hrv, heartRate);   // <-- send fresh HRV + HR
+                            }
                             runOnUiThread(() -> {
                                 tvHRV.setText("HRV: " + String.format("%.1f", hrv));
                             });

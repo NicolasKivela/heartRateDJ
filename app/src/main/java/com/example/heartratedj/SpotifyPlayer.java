@@ -49,6 +49,10 @@ public class SpotifyPlayer {
     public void updateRemote(SpotifyAppRemote remote) {
         this.remote = remote;
     }
+    public void updateMetrics(double newHrv, int newHr) {
+        this.hrv = newHrv;
+        this.heartRate = newHr;
+    }
     public void setNewSong(String uri){
         this.currentSongUri = uri;
         Log.d("setNewsong", "Setting current song: " + uri);
@@ -133,33 +137,39 @@ public class SpotifyPlayer {
     public static String recommendGenre(double hrv, int heartRate) {
         Log.d("recommendGenre", "HR: " + heartRate + " | HRV: " + hrv);
 
-        if (heartRate < 60) {
-            // Lightly active or resting – moderate energy
+        if (heartRate < 65) {
+            // Low HR – calm with a bit of rhythm
             return randomGenre(new String[]{
-                    "indie pop", "indie rock", "folk pop", "dream pop", "synth-pop"
+                    "lo-fi", "indie pop", "folk pop", "dream pop", "synth-pop"
             });
-        } else if (heartRate < 90) {
-            // Warm-up pace – balanced energy
+        } else if (heartRate < 80) {
+            // Light activity – mellow but upbeat
             return randomGenre(new String[]{
-                    "pop rock", "alt pop", "funk", "nu-disco", "electropop"
+                    "indie rock", "alt pop", "soft rock", "nu-disco", "electropop"
             });
-        } else if (heartRate < 110) {
-            // Moderate workout – energetic
+        } else if (heartRate < 100) {
+            // Moderate pace – steady, groovy
             return randomGenre(new String[]{
-                    "dance pop", "house", "garage", "electronic", "future bass"
+                    "pop rock", "funk", "garage", "dance pop", "deep house"
             });
-        } else if (heartRate < 130) {
-            // Intense cardio – high energy
+        } else if (heartRate < 120) {
+            // Workout zone – high energy
             return randomGenre(new String[]{
-                    "edm", "trance", "techno", "big room", "drum and bass"
+                    "house", "future bass", "edm", "electro house", "trance"
+            });
+        } else if (heartRate < 140) {
+            // Cardio/sprint – aggressive drive
+            return randomGenre(new String[]{
+                    "techno", "big room", "drum and bass", "hard trance", "dubstep"
             });
         } else {
-            // Sprint/HIIT – maximum energy
+            // Max effort – hard hitting
             return randomGenre(new String[]{
-                    "hardstyle", "dubstep", "industrial", "gabber", "speedcore"
+                    "hardstyle", "industrial", "gabber", "speedcore", "riddim dubstep"
             });
         }
     }
+
 
 
 
