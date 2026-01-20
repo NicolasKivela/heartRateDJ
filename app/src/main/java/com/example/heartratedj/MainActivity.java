@@ -43,7 +43,7 @@ import net.openid.appauth.TokenRequest;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String CLIENT_ID = "bb6c51e8855242ba8cca8c251759cd79";
+    private static final String CLIENT_ID = "1234";
     private static final String REDIRECT_URI = "heartratedj://callback";
     private static SpotifyAppRemote mSpotifyAppRemote;
 
