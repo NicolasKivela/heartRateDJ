@@ -1,4 +1,5 @@
 # HeartRateDJ
+This was a fun hobby/school project I made during my exchange in Graz.
 Connect old heart rate monitor to an android phone using ANT+ connection.
 Login to your spotify and let your heart rate decide the songs playing.
 
